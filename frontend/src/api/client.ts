@@ -34,7 +34,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     clearToken();
-    window.location.href = '/login';
+    // 避免在登录/注册页无限刷新
+    if (!['/login', '/register'].includes(window.location.pathname)) {
+      window.location.href = '/login';
+    }
     throw new Error('未登录');
   }
 
