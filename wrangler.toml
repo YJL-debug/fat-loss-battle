@@ -1,0 +1,25 @@
+name = "weight-tracker"
+main = "src/index.ts"
+compatibility_date = "2025-12-01"
+
+# 前端静态文件（build 后输出到 static/）
+[assets]
+directory = "./static"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[placement]
+mode = "smart"
+
+[vars]
+AI_ENDPOINT = "https://api.openai.com/v1"
+AI_MODEL = "gpt-4o-mini"
+
+# Secrets（通过 GitHub Secrets 或 wrangler secret put 设置）：
+# AI_API_KEY
+
+[[d1_databases]]
+binding = "DB"
+database_name = "weight-tracker-db"
+database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
