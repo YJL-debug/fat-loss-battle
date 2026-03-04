@@ -21,10 +21,10 @@ weight-tracker/
 │   ├── bindings.ts               ← 环境变量类型定义
 │   ├── middleware/auth.ts        ← Bearer Token 认证中间件
 │   ├── routes/
-│   │   ├── auth.ts               ← 注册/登录/登出
+│   │   ├── auth.ts               ← 注册/登录/登出/头像更新
 │   │   ├── groups.ts             ← 群组管理/邀请码
 │   │   ├── weights.ts            ← 体重记录 CRUD
-│   │   ├── leaderboard.ts        ← 三种排行榜
+│   │   ├── leaderboard.ts        ← 三种排行榜 + AI 评语
 │   │   └── ai.ts                 ← AI 分析（三种模式）
 │   └── utils/crypto.ts           ← 密码哈希/Token 生成
 ├── frontend/                     ← React SPA 前端
@@ -36,31 +36,38 @@ weight-tracker/
 │       ├── App.tsx               ← 路由配置
 │       ├── api/client.ts         ← API 请求封装（全部接口）
 │       ├── hooks/useAuth.tsx     ← 认证 Context
-│       ├── components/layout/AppShell.tsx ← 底部 Tab 导航壳
+│       ├── components/
+│       │   ├── layout/AppShell.tsx ← 底部 Tab 导航壳
+│       │   └── common/
+│       │       ├── Avatar.tsx     ← Emoji 头像组件
+│       │       └── AvatarPicker.tsx ← 头像选择弹窗
 │       └── pages/
 │           ├── LoginPage.tsx     ← 登录
-│           ├── RegisterPage.tsx  ← 注册
+│           ├── RegisterPage.tsx  ← 邀请码注册
 │           ├── SetupPage.tsx     ← 创建/加入群组
 │           ├── DashboardPage.tsx ← 首页：快速打卡+概览+迷你图
 │           ├── ChartsPage.tsx    ← 个人趋势图+全员对比图
-│           ├── LeaderboardPage.tsx ← 减脂率/连续打卡/综合排行
+│           ├── LeaderboardPage.tsx ← 排行榜 + AI 评语
 │           ├── AIPage.tsx        ← AI 个人分析/群组播报/搞笑点评
-│           └── SettingsPage.tsx  ← 群组管理/邀请码/退出
+│           └── SettingsPage.tsx  ← 头像/群组管理/邀请码/退出
 ├── migrations/
-│   └── 0001_initial.sql          ← D1 建表（7张表+索引）
+│   ├── 0001_initial.sql          ← D1 建表（7张表+索引）
+│   └── 0002_avatar_and_comments.sql ← 头像字段 + 排行榜评语表
 └── static/                       ← 前端 build 产物（gitignore）
 ```
 
 ## 已实现的功能
 
 ### 用户系统
-- 昵称+密码注册登录（PBKDF2 哈希）
+- 邀请码注册：新用户必须通过邀请码注册并自动加入群组
+- 首个用户可直接注册（用于初始化管理员）
+- 昵称+密码登录（PBKDF2 哈希）
 - Session Token 认证（30天有效期）
-- 无需邮箱，轻量级朋友间使用
+- Emoji 头像：从预设 emoji 中选择个性化头像
 
 ### 群组 + 邀请码
 - 创建群组 → 自动成为管理员
-- 生成 8 位邀请码 → 分享给朋友加入
+- 生成 8 位邀请码 → 分享给朋友注册加入
 - 支持多群组切换
 
 ### 每日体重打卡
@@ -72,39 +79,43 @@ weight-tracker/
 - **个人趋势图**：7/30/90 天切换，显示最高/最低/变化统计
 - **全员对比图**：多人折线叠加，支持「百分比变化」模式（保护隐私）
 
-### 三种排行榜
+### 三种排行榜 + AI 评语
 - **减脂率**：`(初始体重 - 当前体重) / 初始体重 × 100%`
 - **连续打卡天数**：streak 必须包含今天或昨天
 - **综合积分**：减脂率×50% + 连续打卡×30% + 总打卡率×20%
+- **AI 评语**：每人显示趣味头衔和短评（12h 缓存）
 
 ### AI 分析（三种模式）
 - **个人趋势分析**：AI 教练风格，温暖鼓励+实用建议
 - **群组趣味播报**：体育解说员风格，戏剧化 play-by-play + 趣味头衔
 - **排行榜搞笑点评**：脱口秀风格，搞笑颁奖（友善不伤人）
-- 结果缓存在 D1（个人 24h / 群组 12h），支持手动刷新
+- 结果缓存在 D1（个人 24h / 群组 12h），页面切换后自动恢复
 
 ## 数据库表
 
 | 表名 | 用途 |
 |------|------|
-| users | 用户（id, nickname, password_hash, initial_weight） |
+| users | 用户（id, nickname, password_hash, avatar, initial_weight） |
 | groups | 群组 |
 | group_members | 群组成员（多对多，role: admin/member） |
 | invite_codes | 邀请码（8位，有使用次数和过期时间限制） |
 | weight_records | 体重记录（unique: user+group+date） |
 | sessions | 登录会话 |
 | ai_analyses | AI 分析结果缓存 |
+| leaderboard_comments | 排行榜 AI 评语（per-user 头衔+短评） |
 
 ## API 端点速览
 
 ```
-POST /api/v1/auth/register          ← 注册
-POST /api/v1/auth/login             ← 登录
-GET  /api/v1/auth/me                ← 当前用户（需认证）
+POST /api/v1/auth/register              ← 注册（仅首个用户）
+POST /api/v1/auth/register-with-invite  ← 邀请码注册（创建账号+加入群组）
+POST /api/v1/auth/login                 ← 登录
+GET  /api/v1/auth/me                    ← 当前用户（需认证）
+PUT  /api/v1/auth/me                    ← 更新头像
 
 POST /api/v1/groups                 ← 创建群组
 GET  /api/v1/groups                 ← 我的群组列表
-POST /api/v1/groups/join            ← 邀请码加入
+POST /api/v1/groups/join            ← 邀请码加入（已有账号）
 POST /api/v1/groups/:id/invite      ← 生成邀请码
 
 POST /api/v1/groups/:id/weights     ← 记录体重（upsert）
@@ -114,6 +125,7 @@ GET  /api/v1/groups/:id/weights/all        ← 全员数据
 GET  /api/v1/groups/:id/leaderboard/fat-loss   ← 减脂率排行
 GET  /api/v1/groups/:id/leaderboard/streaks    ← 打卡排行
 GET  /api/v1/groups/:id/leaderboard/combined   ← 综合排行
+POST /api/v1/groups/:id/leaderboard/comments   ← AI 生成排行榜评语
 
 POST /api/v1/groups/:id/ai/analyze/me     ← AI 个人分析
 POST /api/v1/groups/:id/ai/analyze/group  ← AI 群组播报
@@ -128,6 +140,9 @@ npm install
 
 # 初始化本地 D1 数据库
 npm run db:migrate:local
+
+# 配置 AI 密钥（创建 .dev.vars 文件）
+echo "AI_API_KEY=你的密钥" > .dev.vars
 
 # 构建前端 + 启动 Worker（生产模式预览）
 npm run build
@@ -186,7 +201,7 @@ AI_MODEL = "模型名称"                     # 如 gpt-4o-mini
 
 ## 待改进 / 后续可做
 
-- [ ] 自定义头像上传
+- [ ] 图片头像上传（接入 Cloudflare R2）
 - [ ] 目标体重设定 + 图表上显示目标线
 - [ ] 每周/月度自动 AI 周报推送
 - [ ] PWA 离线支持 + 推送提醒打卡
