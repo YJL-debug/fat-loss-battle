@@ -59,7 +59,7 @@ groups.get('/:groupId', async (c) => {
     .first();
 
   const members = await c.env.DB.prepare(
-    `SELECT u.id, u.nickname, u.initial_weight, gm.role, gm.joined_at,
+    `SELECT u.id, u.nickname, u.avatar, u.initial_weight, gm.role, gm.joined_at,
        (SELECT weight FROM weight_records WHERE user_id = u.id AND group_id = ?
         ORDER BY recorded_date DESC LIMIT 1) as latest_weight
      FROM group_members gm

@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
 
 type Mode = 'personal' | 'group' | 'roast';
+
+const cacheKey = (groupId: string, mode: Mode) => `ai_cache_${groupId}_${mode}`;
 
 export default function AIPage() {
   const { currentGroupId } = useAuth();
@@ -11,10 +13,10 @@ export default function AIPage() {
   const [loading, setLoading] = useState(false);
   const [cached, setCached] = useState(false);
 
-  const analyze = async (refresh = false) => {
+  const analyze = useCallback(async (refresh = false) => {
     if (!currentGroupId) return;
     setLoading(true);
-    setContent('');
+    if (refresh) setContent('');
     try {
       const fn = mode === 'personal'
         ? api.analyzeMe
@@ -25,12 +27,30 @@ export default function AIPage() {
       const data = await fn(currentGroupId, refresh);
       setContent(data.content);
       setCached(!!data.cached);
+      // 写入 localStorage 缓存
+      localStorage.setItem(cacheKey(currentGroupId, mode), JSON.stringify({ content: data.content }));
     } catch (err: any) {
       setContent(`分析失败：${err.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentGroupId, mode]);
+
+  // 页面加载或切换 mode 时自动加载缓存
+  useEffect(() => {
+    if (!currentGroupId) return;
+    // 先从 localStorage 即时显示
+    const local = localStorage.getItem(cacheKey(currentGroupId, mode));
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        setContent(parsed.content);
+        setCached(true);
+      } catch { /* ignore */ }
+    }
+    // 再从后端加载最新缓存
+    analyze(false);
+  }, [mode, currentGroupId, analyze]);
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6">
@@ -45,7 +65,7 @@ export default function AIPage() {
         ].map((m) => (
           <button
             key={m.key}
-            onClick={() => { setMode(m.key); setContent(''); }}
+            onClick={() => setMode(m.key)}
             className={`p-3 rounded-xl text-center transition ${
               mode === m.key
                 ? 'bg-primary-600 text-white shadow-md'

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
+import Avatar from '../components/common/Avatar';
 
 type Tab = 'fat-loss' | 'streaks' | 'combined';
 
@@ -11,6 +12,8 @@ export default function LeaderboardPage() {
   const [tab, setTab] = useState<Tab>('fat-loss');
   const [rankings, setRankings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [comments, setComments] = useState<Record<string, { title: string; comment: string }>>({});
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -24,9 +27,46 @@ export default function LeaderboardPage() {
     fetch.then((d) => setRankings(d.rankings)).finally(() => setLoading(false));
   }, [currentGroupId, tab]);
 
+  // 自动加载评语缓存
+  useEffect(() => {
+    if (!currentGroupId) return;
+    api.getLeaderboardComments(currentGroupId).then((d) => {
+      const map: Record<string, { title: string; comment: string }> = {};
+      for (const c of d.comments) {
+        map[c.user_id] = { title: c.title, comment: c.comment };
+      }
+      setComments(map);
+    }).catch(() => {});
+  }, [currentGroupId]);
+
+  const generateComments = async (refresh = false) => {
+    if (!currentGroupId) return;
+    setCommentsLoading(true);
+    try {
+      const d = await api.getLeaderboardComments(currentGroupId, refresh);
+      const map: Record<string, { title: string; comment: string }> = {};
+      for (const c of d.comments) {
+        map[c.user_id] = { title: c.title, comment: c.comment };
+      }
+      setComments(map);
+    } catch {}
+    setCommentsLoading(false);
+  };
+
+  const hasComments = Object.keys(comments).length > 0;
+
   return (
     <div className="max-w-md mx-auto px-4 pt-6">
-      <h1 className="text-xl font-bold text-gray-800 mb-4">排行榜</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-gray-800">排行榜</h1>
+        <button
+          onClick={() => generateComments(!hasComments ? false : true)}
+          disabled={commentsLoading}
+          className="text-xs px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg font-medium disabled:opacity-50"
+        >
+          {commentsLoading ? '生成中...' : hasComments ? '刷新评语' : '生成评语 ✨'}
+        </button>
+      </div>
 
       {/* Tab */}
       <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
@@ -67,18 +107,25 @@ export default function LeaderboardPage() {
               </div>
 
               {/* 头像 */}
-              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold shrink-0">
-                {r.nickname?.charAt(0)}
-              </div>
+              <Avatar nickname={r.nickname} avatar={r.avatar} />
 
               {/* 信息 */}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-800 truncate">{r.nickname}</p>
-                <p className="text-xs text-gray-400">
-                  {tab === 'fat-loss' && `${r.initialWeight} → ${r.currentWeight} kg`}
-                  {tab === 'streaks' && `累计 ${r.totalDays} 天`}
-                  {tab === 'combined' && `减脂 ${r.lossPercent}% · 连续 ${r.streak} 天`}
-                </p>
+                {comments[r.userId] ? (
+                  <>
+                    <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-600 text-xs rounded-full">
+                      {comments[r.userId].title}
+                    </span>
+                    <p className="text-xs text-gray-400 mt-0.5">{comments[r.userId].comment}</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-400">
+                    {tab === 'fat-loss' && `${r.initialWeight} → ${r.currentWeight} kg`}
+                    {tab === 'streaks' && `累计 ${r.totalDays} 天`}
+                    {tab === 'combined' && `减脂 ${r.lossPercent}% · 连续 ${r.streak} 天`}
+                  </p>
+                )}
               </div>
 
               {/* 核心数值 */}

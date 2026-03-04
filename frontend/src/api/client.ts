@@ -53,6 +53,12 @@ export const api = {
       body: JSON.stringify({ nickname, password }),
     }),
 
+  registerWithInvite: (nickname: string, password: string, inviteCode: string) =>
+    request<{ token: string; user: { id: string; nickname: string }; groupId: string }>('/auth/register-with-invite', {
+      method: 'POST',
+      body: JSON.stringify({ nickname, password, inviteCode }),
+    }),
+
   login: (nickname: string, password: string) =>
     request<{ token: string; user: { id: string; nickname: string } }>('/auth/login', {
       method: 'POST',
@@ -62,6 +68,9 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
 
   getMe: () => request<{ user: any }>('/auth/me'),
+
+  updateProfile: (data: { avatar?: string }) =>
+    request('/auth/me', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Groups
   createGroup: (name: string) =>
@@ -116,6 +125,12 @@ export const api = {
 
   getCombinedRanking: (groupId: string) =>
     request<{ rankings: any[] }>(`/groups/${groupId}/leaderboard/combined`),
+
+  getLeaderboardComments: (groupId: string, refresh = false) =>
+    request<{ comments: Array<{ user_id: string; title: string; comment: string }>; cached?: boolean }>(
+      `/groups/${groupId}/leaderboard/comments${refresh ? '?refresh=true' : ''}`,
+      { method: 'POST' }
+    ),
 
   // AI
   analyzeMe: (groupId: string, refresh = false) =>

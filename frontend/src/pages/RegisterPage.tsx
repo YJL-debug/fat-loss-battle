@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, registerWithInvite } = useAuth();
   const navigate = useNavigate();
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -26,8 +27,15 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(nickname, password);
-      navigate('/setup');
+      if (inviteCode.trim()) {
+        // 有邀请码：注册 + 加入群组
+        await registerWithInvite(nickname, password, inviteCode);
+        navigate('/');
+      } else {
+        // 无邀请码：仅首个用户允许
+        await register(nickname, password);
+        navigate('/setup');
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -41,7 +49,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <div className="text-6xl mb-3">⚖️</div>
           <h1 className="text-2xl font-bold text-gray-800">注册账号</h1>
-          <p className="text-gray-500 mt-1">加入减脂大作战</p>
+          <p className="text-gray-500 mt-1">输入邀请码加入减脂大作战</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 space-y-4">
@@ -77,6 +85,18 @@ export default function RegisterPage() {
               placeholder="再输入一次密码"
               required
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">邀请码</label>
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none transition font-mono tracking-widest text-center"
+              placeholder="输入8位邀请码"
+              maxLength={8}
+            />
+            <p className="text-xs text-gray-400 mt-1">找管理员获取邀请码</p>
           </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}

@@ -5,3 +5,4 @@ static/
 .dev.vars
 .env
 *.local
+.ace-tool/

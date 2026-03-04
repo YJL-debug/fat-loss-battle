@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
+import Avatar from '../components/common/Avatar';
+import AvatarPicker from '../components/common/AvatarPicker';
 
 export default function SettingsPage() {
-  const { user, currentGroupId, logout, switchGroup } = useAuth();
+  const { user, currentGroupId, logout, switchGroup, updateUser } = useAuth();
   const navigate = useNavigate();
   const [groups, setGroups] = useState<any[]>([]);
   const [inviteCode, setInviteCode] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   useEffect(() => {
     api.getGroups().then((d) => setGroups(d.groups));
@@ -24,6 +27,14 @@ export default function SettingsPage() {
     setGenerating(false);
   };
 
+  const handleAvatarSelect = async (emoji: string) => {
+    try {
+      await api.updateProfile({ avatar: emoji });
+      updateUser({ avatar: emoji });
+      setShowAvatarPicker(false);
+    } catch {}
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -36,12 +47,15 @@ export default function SettingsPage() {
       {/* 个人信息 */}
       <div className="bg-white rounded-2xl shadow-sm p-5 mb-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-xl font-bold">
-            {user?.nickname?.charAt(0)}
-          </div>
+          <button onClick={() => setShowAvatarPicker(true)} className="relative group">
+            <Avatar nickname={user?.nickname || ''} avatar={user?.avatar} size="lg" />
+            <div className="absolute inset-0 rounded-full bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+              <span className="text-white text-xs">换</span>
+            </div>
+          </button>
           <div>
             <p className="text-lg font-semibold text-gray-800">{user?.nickname}</p>
-            <p className="text-sm text-gray-400">减脂战士</p>
+            <p className="text-sm text-gray-400">点击头像更换</p>
           </div>
         </div>
       </div>
@@ -115,6 +129,14 @@ export default function SettingsPage() {
       >
         退出登录
       </button>
+
+      {showAvatarPicker && (
+        <AvatarPicker
+          currentAvatar={user?.avatar}
+          onSelect={handleAvatarSelect}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
     </div>
   );
 }

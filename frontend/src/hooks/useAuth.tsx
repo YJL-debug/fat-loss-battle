@@ -1,20 +1,28 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api, setToken, clearToken, getGroupId, setGroupId } from '../api/client';
 
+interface User {
+  id: string;
+  nickname: string;
+  avatar?: string | null;
+}
+
 interface AuthState {
-  user: { id: string; nickname: string } | null;
+  user: User | null;
   currentGroupId: string | null;
   loading: boolean;
   login: (nickname: string, password: string) => Promise<void>;
   register: (nickname: string, password: string) => Promise<void>;
+  registerWithInvite: (nickname: string, password: string, inviteCode: string) => Promise<void>;
   logout: () => Promise<void>;
   switchGroup: (groupId: string) => void;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthState>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ id: string; nickname: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [currentGroupId, setCurrentGroupId] = useState<string | null>(getGroupId());
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
+  const registerWithInvite = async (nickname: string, password: string, inviteCode: string) => {
+    const data = await api.registerWithInvite(nickname, password, inviteCode);
+    setToken(data.token);
+    setUser(data.user);
+    setGroupId(data.groupId);
+    setCurrentGroupId(data.groupId);
+  };
+
   const logout = async () => {
     try { await api.logout(); } catch {}
     clearToken();
@@ -49,8 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentGroupId(groupId);
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prev) => prev ? { ...prev, ...updates } : prev);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, currentGroupId, loading, login, register, logout, switchGroup }}>
+    <AuthContext.Provider value={{ user, currentGroupId, loading, login, register, registerWithInvite, logout, switchGroup, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

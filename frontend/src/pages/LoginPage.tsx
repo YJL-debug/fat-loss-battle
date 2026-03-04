@@ -68,7 +68,7 @@ export default function LoginPage() {
           </button>
 
           <p className="text-center text-sm text-gray-500">
-            还没有账号？{' '}
+            有邀请码？{' '}
             <Link to="/register" className="text-primary-600 font-medium">
               立即注册
             </Link>
