@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-一群小伙伴减脂用的 Web 应用，支持每日体重打卡、数据可视化、排行榜比拼和 AI 趣味分析。
+一群小伙伴减脂用的 Web 应用，支持每日体重打卡、数据可视化、排行榜比拼和 AI 趣味智能分析。
 
 **技术栈：** Cloudflare Worker (Hono) + D1 数据库 + React + TailwindCSS + Recharts
 
